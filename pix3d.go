@@ -250,6 +250,7 @@ func CenterAndScaleModel(tris []Triangle, targetSize float64) []Triangle {
 		}
 		newNormal := TriangleNormal(newVerts[0], newVerts[1], newVerts[2])
 		result[i] = Triangle{Verts: newVerts, Normal: newNormal}
+		result[i].Normal = Vec3{-newNormal.X, -newNormal.Y, -newNormal.Z}
 	}
 	return result
 }
