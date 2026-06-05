@@ -250,7 +250,6 @@ func CenterAndScaleModel(tris []Triangle, targetSize float64) []Triangle {
 		}
 		newNormal := TriangleNormal(newVerts[0], newVerts[1], newVerts[2])
 		result[i] = Triangle{Verts: newVerts, Normal: newNormal}
-		result[i].Normal = Vec3{-newNormal.X, -newNormal.Y, -newNormal.Z}
 	}
 	return result
 }
@@ -290,9 +289,9 @@ func (c *Canvas) DrawTriangle(tri Triangle, clr color.Color) {
 
 	rM, gM, bM, _ := clr.RGBA()
 
-	r := uint8(float64(rM) * intensity)
-	g := uint8(float64(gM) * intensity)
-	b := uint8(float64(bM) * intensity)
+	r := uint8(float64(rM>>8) * intensity)
+	g := uint8(float64(gM>>8) * intensity)
+	b := uint8(float64(bM>>8) * intensity)
 
 	x1, y1, x2, y2, x3, y3 := p0x, p0y, p1x, p1y, p2x, p2y
 	if y1 > y2 {
