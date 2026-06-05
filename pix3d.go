@@ -2,7 +2,6 @@ package pix3d
 
 import (
 	"bufio"
-	"image"
 	"image/color"
 	"math"
 	"os"
@@ -255,7 +254,7 @@ func CenterAndScaleModel(tris []Triangle, targetSize float64) []Triangle {
 	return result
 }
 
-func (c *Canvas) DrawTriangle(img *image.NRGBA, tri Triangle, clr color.Color) {
+func (c *Canvas) DrawTriangle(tri Triangle, clr color.Color) {
 	cameraZ := 3.0
 	lightDir := Vec3{1, 1, 1}
 	lenLight := math.Sqrt(lightDir.X*lightDir.X + lightDir.Y*lightDir.Y + lightDir.Z*lightDir.Z)
@@ -316,7 +315,7 @@ func (c *Canvas) DrawTriangle(img *image.NRGBA, tri Triangle, clr color.Color) {
 		return x1 + int(float64(x2-x1)*t)
 	}
 
-	bounds := img.Bounds()
+	bounds := c.img.Bounds()
 	for y := y1; y <= y3 && y < bounds.Max.Y; y++ {
 		if y < 0 {
 			continue
@@ -338,18 +337,18 @@ func (c *Canvas) DrawTriangle(img *image.NRGBA, tri Triangle, clr color.Color) {
 		if xEnd >= bounds.Max.X {
 			xEnd = bounds.Max.X - 1
 		}
-		offset := img.PixOffset(xStart, y)
+		offset := c.img.PixOffset(xStart, y)
 		for x := xStart; x <= xEnd; x++ {
-			img.Pix[offset] = r
-			img.Pix[offset+1] = g
-			img.Pix[offset+2] = b
-			img.Pix[offset+3] = 255
+			c.img.Pix[offset] = r
+			c.img.Pix[offset+1] = g
+			c.img.Pix[offset+2] = b
+			c.img.Pix[offset+3] = 255
 			offset += 4
 		}
 	}
 }
 
-func (c *Canvas) DrawModel(img *image.NRGBA, tris []Triangle, clr color.Color) {
+func (c *Canvas) DrawModel(tris []Triangle, clr color.Color) {
 	type TriWithDepth struct {
 		tri   Triangle
 		depth float64
@@ -361,6 +360,6 @@ func (c *Canvas) DrawModel(img *image.NRGBA, tris []Triangle, clr color.Color) {
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].depth < items[j].depth })
 	for _, it := range items {
-		c.DrawTriangle(img, it.tri, clr)
+		c.DrawTriangle(it.tri, clr)
 	}
 }

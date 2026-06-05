@@ -28,7 +28,6 @@ type Canvas struct {
 	ModelColor       color.Color
 }
 
-// 2D.
 // NewCanvas создаёт новый холст заданного размера, заполненный чёрным.
 func NewCanvas(width, height int) *Canvas {
 	return &Canvas{
