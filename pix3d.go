@@ -26,6 +26,14 @@ type Triangle struct {
 	Normal Vec3
 }
 
+type Light struct {
+	Position  Vec3        // Направление
+	Color     color.Color // Цветвета
+	Intensity float64     // Яркость (0..1)
+	Ambient   float64     // Фоновое освещение (0..1)
+	Diffuse   float64     // Коэффициент рассеянного света
+}
+
 func RotateX(tris []Triangle, angle float64) []Triangle {
 	cos := math.Cos(angle)
 	sin := math.Sin(angle)
@@ -256,11 +264,6 @@ func CenterAndScaleModel(tris []Triangle, targetSize float64) []Triangle {
 
 func (c *Canvas) DrawTriangle(tri Triangle, clr color.Color) {
 	cameraZ := 3.0
-	lightDir := Vec3{1, 1, 1}
-	lenLight := math.Sqrt(lightDir.X*lightDir.X + lightDir.Y*lightDir.Y + lightDir.Z*lightDir.Z)
-	lightDir.X /= lenLight
-	lightDir.Y /= lenLight
-	lightDir.Z /= lenLight
 
 	project := func(v Vec3) (int, int) {
 		dz := cameraZ - v.Z
@@ -276,22 +279,58 @@ func (c *Canvas) DrawTriangle(tri Triangle, clr color.Color) {
 	p0x, p0y := project(tri.Verts[0])
 	p1x, p1y := project(tri.Verts[1])
 	p2x, p2y := project(tri.Verts[2])
-	if p0x < 0 || p1x < 0 || p2x < 0 {
+
+	w := c.img.Bounds().Max.X
+	h := c.img.Bounds().Max.Y
+	if (p0x < 0 && p1x < 0 && p2x < 0) ||
+		(p0x >= w && p1x >= w && p2x >= w) ||
+		(p0y < 0 && p1y < 0 && p2y < 0) ||
+		(p0y >= h && p1y >= h && p2y >= h) {
 		return
 	}
 
-	normal := tri.Normal
-	intensity := normal.X*lightDir.X + normal.Y*lightDir.Y + normal.Z*lightDir.Z
-	if intensity < 0 {
-		intensity = 0
+	var totalR, totalG, totalB float64
+
+	for _, light := range c.Lights {
+		lightDir := light.Position
+		lenL := math.Sqrt(lightDir.X*lightDir.X + lightDir.Y*lightDir.Y + lightDir.Z*lightDir.Z)
+		if lenL > 0 {
+			lightDir.X /= lenL
+			lightDir.Y /= lenL
+			lightDir.Z /= lenL
+		}
+
+		dot := tri.Normal.X*lightDir.X + tri.Normal.Y*lightDir.Y + tri.Normal.Z*lightDir.Z
+		if dot < 0 {
+			dot = 0
+		}
+		intensity := light.Ambient + light.Diffuse*dot
+		intensity *= light.Intensity
+
+		lr, lg, lb, _ := light.Color.RGBA()
+		lr8, lg8, lb8 := float64(lr>>8), float64(lg>>8), float64(lb>>8)
+
+		totalR += lr8 * intensity
+		totalG += lg8 * intensity
+		totalB += lb8 * intensity
 	}
-	intensity = 0.2 + 0.8*intensity
+
+	if totalR > 255 {
+		totalR = 255
+	}
+	if totalG > 255 {
+		totalG = 255
+	}
+	if totalB > 255 {
+		totalB = 255
+	}
 
 	rM, gM, bM, _ := clr.RGBA()
+	r8, g8, b8 := float64(rM>>8), float64(gM>>8), float64(bM>>8)
 
-	r := uint8(float64(rM>>8) * intensity)
-	g := uint8(float64(gM>>8) * intensity)
-	b := uint8(float64(bM>>8) * intensity)
+	r := uint8(r8 * totalR / 255)
+	g := uint8(g8 * totalG / 255)
+	b := uint8(b8 * totalB / 255)
 
 	x1, y1, x2, y2, x3, y3 := p0x, p0y, p1x, p1y, p2x, p2y
 	if y1 > y2 {

@@ -26,6 +26,7 @@ type Canvas struct {
 	Scale            int // Размер модели(экранный)
 	CenterX, CenterY int
 	ModelColor       color.Color
+	Lights           []Light
 }
 
 // NewCanvas создаёт новый холст заданного размера, заполненный чёрным.
@@ -37,6 +38,15 @@ func NewCanvas(width, height int) *Canvas {
 		Scale:   800,
 		CenterX: width / 2,
 		CenterY: height / 2,
+		Lights: []Light{
+			{
+				Position:  Vec3{1, 1, 1},
+				Color:     color.White,
+				Intensity: 1.0,
+				Ambient:   0.2,
+				Diffuse:   0.8,
+			},
+		},
 	}
 }
 
