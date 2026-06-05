@@ -1,6 +1,8 @@
 # Pix3D - простой 3D-движок на Go
 Простой 3D-движок на Go.
-<img src="demo.png" width="300" alt="demo.png"><br>
+<br><br>
+<img src="demo.png" alt="demo.png"><br><br>
+# Обзор
 * Поддержка моделей в формате OBJ.
 * Поддерживает несколько источников света.
 
