@@ -34,97 +34,70 @@ type Light struct {
 	Diffuse   float64     // Коэффициент рассеянного света
 }
 
-func RotateX(tris []Triangle, angle float64) []Triangle {
-	cos := math.Cos(angle)
-	sin := math.Sin(angle)
-	res := make([]Triangle, len(tris))
-	for i, tri := range tris {
-		var newVerts [3]Vec3
-		for j, p := range tri.Verts {
-			newVerts[j] = Vec3{
-				X: p.X,
-				Y: p.Y*cos - p.Z*sin,
-				Z: p.Y*sin + p.Z*cos,
-			}
-		}
-		n := tri.Normal
-		newNormal := Vec3{
-			X: n.X,
-			Y: n.Y*cos - n.Z*sin,
-			Z: n.Y*sin + n.Z*cos,
-		}
-		lenN := math.Sqrt(newNormal.X*newNormal.X + newNormal.Y*newNormal.Y + newNormal.Z*newNormal.Z)
-		if lenN > 0 {
-			newNormal.X /= lenN
-			newNormal.Y /= lenN
-			newNormal.Z /= lenN
-		}
-		res[i] = Triangle{Verts: newVerts, Normal: newNormal}
-	}
-	return res
+type Mesh struct {
+	Vertices []Vec3
+	Normals  []Vec3
+	Indices  []int
 }
 
-func RotateY(tris []Triangle, angle float64) []Triangle {
+// RotateX поворачивает все вершины меша вокруг оси X на угол angle (радианы).
+func (m *Mesh) RotateX(angle float64) {
 	cos := math.Cos(angle)
 	sin := math.Sin(angle)
-	res := make([]Triangle, len(tris))
-	for i, tri := range tris {
-		var newVerts [3]Vec3
-		for j, p := range tri.Verts {
-			newVerts[j] = Vec3{
-				X: p.X*cos + p.Z*sin,
-				Y: p.Y,
-				Z: -p.X*sin + p.Z*cos,
-			}
-		}
-		n := tri.Normal
-		newNormal := Vec3{
-			X: n.X*cos + n.Z*sin,
-			Y: n.Y,
-			Z: -n.X*sin + n.Z*cos,
-		}
-		lenN := math.Sqrt(newNormal.X*newNormal.X + newNormal.Y*newNormal.Y + newNormal.Z*newNormal.Z)
-		if lenN > 0 {
-			newNormal.X /= lenN
-			newNormal.Y /= lenN
-			newNormal.Z /= lenN
-		}
-		res[i] = Triangle{Verts: newVerts, Normal: newNormal}
+	for i := range m.Vertices {
+		y := m.Vertices[i].Y
+		z := m.Vertices[i].Z
+		m.Vertices[i].Y = y*cos - z*sin
+		m.Vertices[i].Z = y*sin + z*cos
 	}
-	return res
+
+	for i := range m.Normals {
+		y := m.Normals[i].Y
+		z := m.Normals[i].Z
+		m.Normals[i].Y = y*cos - z*sin
+		m.Normals[i].Z = y*sin + z*cos
+	}
 }
 
-func RotateZ(tris []Triangle, angle float64) []Triangle {
+// RotateY поворачивает все вершины меша вокруг оси Y на угол angle (радианы).
+func (m *Mesh) RotateY(angle float64) {
 	cos := math.Cos(angle)
 	sin := math.Sin(angle)
-	res := make([]Triangle, len(tris))
-	for i, tri := range tris {
-		var newVerts [3]Vec3
-		for j, p := range tri.Verts {
-			newVerts[j] = Vec3{
-				X: p.X*cos - p.Y*sin,
-				Y: p.X*sin + p.Y*cos,
-				Z: p.Z,
-			}
-		}
-		n := tri.Normal
-		newNormal := Vec3{
-			X: n.X*cos - n.Y*sin,
-			Y: n.X*sin + n.Y*cos,
-			Z: n.Z,
-		}
-		lenN := math.Sqrt(newNormal.X*newNormal.X + newNormal.Y*newNormal.Y + newNormal.Z*newNormal.Z)
-		if lenN > 0 {
-			newNormal.X /= lenN
-			newNormal.Y /= lenN
-			newNormal.Z /= lenN
-		}
-		res[i] = Triangle{Verts: newVerts, Normal: newNormal}
+	for i := range m.Vertices {
+		x := m.Vertices[i].X
+		z := m.Vertices[i].Z
+		m.Vertices[i].X = x*cos + z*sin
+		m.Vertices[i].Z = -x*sin + z*cos
 	}
-	return res
+	// Если есть вершинные нормали – поворачиваем и их
+	for i := range m.Normals {
+		x := m.Normals[i].X
+		z := m.Normals[i].Z
+		m.Normals[i].X = x*cos + z*sin
+		m.Normals[i].Z = -x*sin + z*cos
+		// Нормализация не требуется, если они были единичными
+	}
 }
 
-func TriangleNormal(v0, v1, v2 Vec3) Vec3 {
+// RotateZ поворачивает все вершины меша вокруг оси Z на угол angle (радианы).
+func (m *Mesh) RotateZ(angle float64) {
+	cos := math.Cos(angle)
+	sin := math.Sin(angle)
+	for i := range m.Vertices {
+		x := m.Vertices[i].X
+		y := m.Vertices[i].Y
+		m.Vertices[i].X = x*cos - y*sin
+		m.Vertices[i].Y = x*sin + y*cos
+	}
+	for i := range m.Normals {
+		x := m.Normals[i].X
+		y := m.Normals[i].Y
+		m.Normals[i].X = x*cos - y*sin
+		m.Normals[i].Y = x*sin + y*cos
+	}
+}
+
+func triangleNormal(v0, v1, v2 Vec3) Vec3 {
 	e1 := Vec3{v1.X - v0.X, v1.Y - v0.Y, v1.Z - v0.Z}
 	e2 := Vec3{v2.X - v0.X, v2.Y - v0.Y, v2.Z - v0.Z}
 	nx := e1.Y*e2.Z - e1.Z*e2.Y
@@ -137,7 +110,7 @@ func TriangleNormal(v0, v1, v2 Vec3) Vec3 {
 	return Vec3{nx / len, ny / len, nz / len}
 }
 
-func ParseOBJ(filename string) ([]Triangle, error) {
+func LoadMesh(filename string) (*Mesh, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -145,7 +118,11 @@ func ParseOBJ(filename string) ([]Triangle, error) {
 	defer file.Close()
 
 	var vertices []Vec3
-	var triangles []Triangle
+	var indices []int
+
+	type faceVert struct{ v int }
+	var currentFace []faceVert
+
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -164,75 +141,59 @@ func ParseOBJ(filename string) ([]Triangle, error) {
 			x, _ := strconv.ParseFloat(fields[1], 64)
 			y, _ := strconv.ParseFloat(fields[2], 64)
 			z, _ := strconv.ParseFloat(fields[3], 64)
-			vertices = append(vertices, Vec3{X: x, Y: y, Z: z})
+			vertices = append(vertices, Vec3{x, y, z})
 		case "f":
-			if len(fields) < 4 {
-				continue
-			}
-			indices := make([]int, 0, len(fields)-1)
+			currentFace = currentFace[:0]
 			for _, part := range fields[1:] {
-				idxStr := strings.Split(part, "/")[0]
-				idx, _ := strconv.Atoi(idxStr)
-				if idx > 0 {
-					idx--
-				} else if idx < 0 {
-					idx = len(vertices) + idx
-				} else {
-					continue
+				parts := strings.Split(part, "/")
+				vIdx, _ := strconv.Atoi(parts[0])
+				if vIdx < 0 {
+					vIdx = len(vertices) + vIdx + 1
 				}
-				if idx < 0 || idx >= len(vertices) {
-					continue
-				}
-				indices = append(indices, idx)
+				currentFace = append(currentFace, faceVert{v: vIdx})
 			}
-			if len(indices) < 3 {
-				continue
+			for i := 1; i+1 < len(currentFace); i++ {
+				indices = append(indices,
+					currentFace[0].v-1,
+					currentFace[i].v-1,
+					currentFace[i+1].v-1)
 			}
-			for i := 1; i < len(indices)-1; i++ {
-				tri := Triangle{
-					Verts: [3]Vec3{
-						vertices[indices[0]],
-						vertices[indices[i]],
-						vertices[indices[i+1]],
-					},
-				}
-				// Вычисляем нормаль сразу (пока без центрирования)
-				tri.Normal = TriangleNormal(tri.Verts[0], tri.Verts[1], tri.Verts[2])
-				triangles = append(triangles, tri)
-			}
-
 		}
 	}
-	return triangles, scanner.Err()
+
+	mesh := &Mesh{
+		Vertices: vertices,
+		Indices:  indices,
+		Normals:  nil,
+	}
+	return mesh, scanner.Err()
 }
 
-func CenterAndScaleModel(tris []Triangle, targetSize float64) []Triangle {
-	if len(tris) == 0 {
-		return tris
+func (m *Mesh) CenterAndScale(targetSize float64) {
+	if len(m.Vertices) == 0 {
+		return
 	}
 	minX, maxX := math.MaxFloat64, -math.MaxFloat64
 	minY, maxY := math.MaxFloat64, -math.MaxFloat64
 	minZ, maxZ := math.MaxFloat64, -math.MaxFloat64
-	for _, tri := range tris {
-		for _, v := range tri.Verts {
-			if v.X < minX {
-				minX = v.X
-			}
-			if v.X > maxX {
-				maxX = v.X
-			}
-			if v.Y < minY {
-				minY = v.Y
-			}
-			if v.Y > maxY {
-				maxY = v.Y
-			}
-			if v.Z < minZ {
-				minZ = v.Z
-			}
-			if v.Z > maxZ {
-				maxZ = v.Z
-			}
+	for _, v := range m.Vertices {
+		if v.X < minX {
+			minX = v.X
+		}
+		if v.X > maxX {
+			maxX = v.X
+		}
+		if v.Y < minY {
+			minY = v.Y
+		}
+		if v.Y > maxY {
+			maxY = v.Y
+		}
+		if v.Z < minZ {
+			minZ = v.Z
+		}
+		if v.Z > maxZ {
+			maxZ = v.Z
 		}
 	}
 	centerX := (minX + maxX) / 2
@@ -246,20 +207,11 @@ func CenterAndScaleModel(tris []Triangle, targetSize float64) []Triangle {
 		maxSize = 1
 	}
 	scale := targetSize / maxSize
-	result := make([]Triangle, len(tris))
-	for i, tri := range tris {
-		var newVerts [3]Vec3
-		for j, v := range tri.Verts {
-			newVerts[j] = Vec3{
-				X: (v.X - centerX) * scale,
-				Y: (v.Y - centerY) * scale,
-				Z: (v.Z - centerZ) * scale,
-			}
-		}
-		newNormal := TriangleNormal(newVerts[0], newVerts[1], newVerts[2])
-		result[i] = Triangle{Verts: newVerts, Normal: newNormal}
+	for i := range m.Vertices {
+		m.Vertices[i].X = (m.Vertices[i].X - centerX) * scale
+		m.Vertices[i].Y = (m.Vertices[i].Y - centerY) * scale
+		m.Vertices[i].Z = (m.Vertices[i].Z - centerZ) * scale
 	}
-	return result
 }
 
 func (c *Canvas) DrawTriangle(tri Triangle, clr color.Color) {
@@ -387,18 +339,37 @@ func (c *Canvas) DrawTriangle(tri Triangle, clr color.Color) {
 	}
 }
 
-func (c *Canvas) DrawModel(tris []Triangle, clr color.Color) {
-	type TriWithDepth struct {
-		tri   Triangle
+func (c *Canvas) DrawMesh(mesh *Mesh, clr color.Color) {
+	triCount := len(mesh.Indices) / 3
+	type triDepth struct {
+		idx   int
 		depth float64
 	}
-	items := make([]TriWithDepth, len(tris))
-	for i, t := range tris {
-		avgZ := (t.Verts[0].Z + t.Verts[1].Z + t.Verts[2].Z) / 3.0
-		items[i] = TriWithDepth{t, avgZ}
+	depths := make([]triDepth, triCount)
+	for i := 0; i < triCount; i++ {
+		i0 := mesh.Indices[3*i]
+		i1 := mesh.Indices[3*i+1]
+		i2 := mesh.Indices[3*i+2]
+		v0 := mesh.Vertices[i0]
+		v1 := mesh.Vertices[i1]
+		v2 := mesh.Vertices[i2]
+		avgZ := (v0.Z + v1.Z + v2.Z) / 3.0
+		depths[i] = triDepth{idx: 3 * i, depth: avgZ}
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].depth < items[j].depth })
-	for _, it := range items {
-		c.DrawTriangle(it.tri, clr)
+	sort.Slice(depths, func(i, j int) bool { return depths[i].depth < depths[j].depth })
+
+	for _, td := range depths {
+		i0 := mesh.Indices[td.idx]
+		i1 := mesh.Indices[td.idx+1]
+		i2 := mesh.Indices[td.idx+2]
+		tri := Triangle{
+			Verts: [3]Vec3{
+				mesh.Vertices[i0],
+				mesh.Vertices[i1],
+				mesh.Vertices[i2],
+			},
+		}
+		tri.Normal = triangleNormal(tri.Verts[0], tri.Verts[1], tri.Verts[2])
+		c.DrawTriangle(tri, clr)
 	}
 }
