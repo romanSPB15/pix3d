@@ -18,7 +18,7 @@ var (
 	Yellow = color.RGBA{255, 255, 0, 255}
 	Violet = color.RGBA{0, 255, 255, 255}
 	White  = color.RGBA{255, 255, 255, 255}
-	Black  = color.RGBA{255, 255, 255, 255}
+	Black  = color.RGBA{0, 0, 0, 255}
 )
 
 type Vec3 struct{ X, Y, Z float64 }
