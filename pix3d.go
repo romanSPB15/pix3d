@@ -488,3 +488,15 @@ func (c *Canvas) drawMeshWithTransform(mesh *Mesh) {
 		c.drawTriangle(tri, mesh.Color)
 	}
 }
+
+func (c *Canvas) MoveCamera(dx, dy, dz float64) {
+	c.Camera.Position.X += dx
+	c.Camera.Position.Y += dy
+	c.Camera.Position.Z += dz
+}
+
+func (c *Canvas) RotateCamera(dx, dy, dz float64) {
+	c.Camera.Rotation.X += dx
+	c.Camera.Rotation.Y += dy
+	c.Camera.Rotation.Z += dz
+}
