@@ -17,6 +17,8 @@ var (
 	Blue   = color.RGBA{0, 0, 255, 255}
 	Yellow = color.RGBA{255, 255, 0, 255}
 	Violet = color.RGBA{0, 255, 255, 255}
+	White  = color.RGBA{255, 255, 255, 255}
+	Black  = color.RGBA{255, 255, 255, 255}
 )
 
 type Vec3 struct{ X, Y, Z float64 }
@@ -26,18 +28,44 @@ type Triangle struct {
 	Normal Vec3
 }
 
+type Transform struct {
+	Position Vec3
+	Rotation Vec3
+	Scale    Vec3
+}
+
 type Light struct {
 	Position  Vec3        // Направление
-	Color     color.Color // Цветвета
+	Color     color.Color // Цвет света
 	Intensity float64     // Яркость (0..1)
 	Ambient   float64     // Фоновое освещение (0..1)
 	Diffuse   float64     // Коэффициент рассеянного света
 }
 
 type Mesh struct {
-	Vertices []Vec3
-	Normals  []Vec3
-	Indices  []int
+	Vertices  []Vec3
+	Normals   []Vec3
+	Indices   []int
+	Transform Transform
+	Color     color.Color
+}
+
+type Camera struct {
+	Position Vec3
+	Rotation Vec3    // углы Эйлера (pitch, yaw, roll)
+	FOV      float64 // угол обзора в градусах (например, 60)
+	Near     float64
+	Far      float64
+	Aspect   float64 // ширина/высота экрана (будет устанавливаться из Canvas)
+}
+
+func (c *Camera) Forward() Vec3 {
+	yaw := c.Rotation.Y
+	pitch := c.Rotation.X
+	x := math.Cos(yaw) * math.Cos(pitch)
+	y := math.Sin(pitch)
+	z := math.Sin(yaw) * math.Cos(pitch)
+	return Vec3{x, y, z}
 }
 
 // RotateX поворачивает все вершины меша вокруг оси X на угол angle (радианы).
@@ -69,13 +97,11 @@ func (m *Mesh) RotateY(angle float64) {
 		m.Vertices[i].X = x*cos + z*sin
 		m.Vertices[i].Z = -x*sin + z*cos
 	}
-	// Если есть вершинные нормали – поворачиваем и их
 	for i := range m.Normals {
 		x := m.Normals[i].X
 		z := m.Normals[i].Z
 		m.Normals[i].X = x*cos + z*sin
 		m.Normals[i].Z = -x*sin + z*cos
-		// Нормализация не требуется, если они были единичными
 	}
 }
 
@@ -108,6 +134,46 @@ func triangleNormal(v0, v1, v2 Vec3) Vec3 {
 		return Vec3{0, 0, 0}
 	}
 	return Vec3{nx / len, ny / len, nz / len}
+}
+
+// Поворот вектора на углы Эйлера (порядок Z, Y, X – можно выбрать любой)
+func RotateVec(v Vec3, angles Vec3) Vec3 {
+	// Поворот вокруг X
+	cosX, sinX := math.Cos(angles.X), math.Sin(angles.X)
+	y1 := v.Y*cosX - v.Z*sinX
+	z1 := v.Y*sinX + v.Z*cosX
+	v.Y, v.Z = y1, z1
+	// Поворот вокруг Y
+	cosY, sinY := math.Cos(angles.Y), math.Sin(angles.Y)
+	x1 := v.X*cosY + v.Z*sinY
+	z2 := -v.X*sinY + v.Z*cosY
+	v.X, v.Z = x1, z2
+	// Поворот вокруг Z
+	cosZ, sinZ := math.Cos(angles.Z), math.Sin(angles.Z)
+	x2 := v.X*cosZ - v.Y*sinZ
+	y2 := v.X*sinZ + v.Y*cosZ
+	v.X, v.Y = x2, y2
+	return v
+}
+
+// Обратное вращение (для перевода в камеру)
+func RotateVecInv(v Vec3, angles Vec3) Vec3 {
+	// Поворот вокруг Z (обратный)
+	cosZ, sinZ := math.Cos(-angles.Z), math.Sin(-angles.Z)
+	x1 := v.X*cosZ - v.Y*sinZ
+	y1 := v.X*sinZ + v.Y*cosZ
+	v.X, v.Y = x1, y1
+	// Поворот вокруг Y
+	cosY, sinY := math.Cos(-angles.Y), math.Sin(-angles.Y)
+	x2 := v.X*cosY + v.Z*sinY
+	z1 := -v.X*sinY + v.Z*cosY
+	v.X, v.Z = x2, z1
+	// Поворот вокруг X
+	cosX, sinX := math.Cos(-angles.X), math.Sin(-angles.X)
+	y2 := v.Y*cosX - v.Z*sinX
+	z2 := v.Y*sinX + v.Z*cosX
+	v.Y, v.Z = y2, z2
+	return v
 }
 
 func LoadMesh(filename string) (*Mesh, error) {
@@ -169,6 +235,28 @@ func LoadMesh(filename string) (*Mesh, error) {
 	return mesh, scanner.Err()
 }
 
+func (c *Canvas) projectWorldToScreen(world Vec3) (int, int, bool) {
+	camPos := c.Camera.Position
+	camRot := c.Camera.Rotation
+	view := Vec3{world.X - camPos.X, world.Y - camPos.Y, world.Z - camPos.Z}
+	view = RotateVecInv(view, camRot)
+
+	if view.Z <= c.Camera.Near {
+		return 0, 0, false
+	}
+
+	fovRad := c.Camera.FOV * math.Pi / 180.0
+	tanHalf := math.Tan(fovRad / 2.0)
+
+	ndcX := view.X / (view.Z * tanHalf * c.Camera.Aspect)
+	ndcY := view.Y / (view.Z * tanHalf)
+
+	sx := int((ndcX + 1) / 2 * float64(c.width))
+	sy := int((1 - ndcY) / 2 * float64(c.height))
+
+	return sx, sy, true
+}
+
 func (m *Mesh) CenterAndScale(targetSize float64) {
 	if len(m.Vertices) == 0 {
 		return
@@ -214,23 +302,14 @@ func (m *Mesh) CenterAndScale(targetSize float64) {
 	}
 }
 
-func (c *Canvas) DrawTriangle(tri Triangle, clr color.Color) {
-	cameraZ := 3.0
+func (c *Canvas) drawTriangle(tri Triangle, clr color.Color) {
+	p0x, p0y, ok0 := c.projectWorldToScreen(tri.Verts[0])
+	p1x, p1y, ok1 := c.projectWorldToScreen(tri.Verts[1])
+	p2x, p2y, ok2 := c.projectWorldToScreen(tri.Verts[2])
 
-	project := func(v Vec3) (int, int) {
-		dz := cameraZ - v.Z
-		if dz <= 0 {
-			return -1, -1
-		}
-		factor := float64(c.Scale) / dz
-		sx := int(float64(c.CenterX) + v.X*factor)
-		sy := int(float64(c.CenterY) - v.Y*factor)
-		return sx, sy
+	if !ok0 || !ok1 || !ok2 {
+		return
 	}
-
-	p0x, p0y := project(tri.Verts[0])
-	p1x, p1y := project(tri.Verts[1])
-	p2x, p2y := project(tri.Verts[2])
 
 	w := c.img.Bounds().Max.X
 	h := c.img.Bounds().Max.Y
@@ -339,37 +418,73 @@ func (c *Canvas) DrawTriangle(tri Triangle, clr color.Color) {
 	}
 }
 
-func (c *Canvas) DrawMesh(mesh *Mesh, clr color.Color) {
-	triCount := len(mesh.Indices) / 3
-	type triDepth struct {
-		idx   int
+// Render очищает экран и рисует все меши сцены
+func (c *Canvas) Render(backgroundColor color.Color) {
+	c.Fill(backgroundColor)
+
+	type meshDepth struct {
+		mesh  *Mesh
 		depth float64
 	}
-	depths := make([]triDepth, triCount)
+	depths := make([]meshDepth, len(c.meshes))
+	for i, mesh := range c.meshes {
+		var sumZ float64
+		for _, v := range mesh.Vertices {
+			scaled := Vec3{
+				v.X * mesh.Transform.Scale.X,
+				v.Y * mesh.Transform.Scale.Y,
+				v.Z * mesh.Transform.Scale.Z,
+			}
+			rotated := RotateVec(scaled, mesh.Transform.Rotation)
+			world := Vec3{
+				rotated.X + mesh.Transform.Position.X,
+				rotated.Y + mesh.Transform.Position.Y,
+				rotated.Z + mesh.Transform.Position.Z,
+			}
+			sumZ += world.Z
+		}
+		avgZ := sumZ / float64(len(mesh.Vertices))
+		depths[i] = meshDepth{mesh: mesh, depth: avgZ}
+	}
+
+	sort.Slice(depths, func(i, j int) bool {
+		return depths[i].depth > depths[j].depth
+	})
+
+	for _, item := range depths {
+		c.drawMeshWithTransform(item.mesh)
+	}
+}
+
+func (c *Canvas) drawMeshWithTransform(mesh *Mesh) {
+	transformedVerts := make([]Vec3, len(mesh.Vertices))
+	for i, v := range mesh.Vertices {
+		scaled := Vec3{
+			v.X * mesh.Transform.Scale.X,
+			v.Y * mesh.Transform.Scale.Y,
+			v.Z * mesh.Transform.Scale.Z,
+		}
+		rotated := RotateVec(scaled, mesh.Transform.Rotation)
+		transformedVerts[i] = Vec3{
+			rotated.X + mesh.Transform.Position.X,
+			rotated.Y + mesh.Transform.Position.Y,
+			rotated.Z + mesh.Transform.Position.Z,
+		}
+	}
+
+	triCount := len(mesh.Indices) / 3
 	for i := 0; i < triCount; i++ {
 		i0 := mesh.Indices[3*i]
 		i1 := mesh.Indices[3*i+1]
 		i2 := mesh.Indices[3*i+2]
-		v0 := mesh.Vertices[i0]
-		v1 := mesh.Vertices[i1]
-		v2 := mesh.Vertices[i2]
-		avgZ := (v0.Z + v1.Z + v2.Z) / 3.0
-		depths[i] = triDepth{idx: 3 * i, depth: avgZ}
-	}
-	sort.Slice(depths, func(i, j int) bool { return depths[i].depth < depths[j].depth })
-
-	for _, td := range depths {
-		i0 := mesh.Indices[td.idx]
-		i1 := mesh.Indices[td.idx+1]
-		i2 := mesh.Indices[td.idx+2]
 		tri := Triangle{
 			Verts: [3]Vec3{
-				mesh.Vertices[i0],
-				mesh.Vertices[i1],
-				mesh.Vertices[i2],
+				transformedVerts[i0],
+				transformedVerts[i1],
+				transformedVerts[i2],
 			},
 		}
 		tri.Normal = triangleNormal(tri.Verts[0], tri.Verts[1], tri.Verts[2])
-		c.DrawTriangle(tri, clr)
+		c.drawTriangle(tri, mesh.Color)
 	}
 }

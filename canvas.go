@@ -12,7 +12,6 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-// 2D.
 // Operation2D — функция, которая рисует на *image.NRGBA.
 type Operation2D func(*image.NRGBA)
 
@@ -27,6 +26,8 @@ type Canvas struct {
 	CenterX, CenterY int
 	ModelColor       color.Color
 	Lights           []Light
+	Camera           Camera
+	meshes           []*Mesh
 }
 
 // NewCanvas создаёт новый холст заданного размера, заполненный чёрным.
@@ -47,7 +48,19 @@ func NewCanvas(width, height int) *Canvas {
 				Diffuse:   0.8,
 			},
 		},
+		Camera: Camera{
+			Position: Vec3{0, 0, 3},
+			Rotation: Vec3{0, 0, 0},
+			FOV:      60,
+			Near:     0.1,
+			Far:      100,
+			Aspect:   float64(width) / float64(height),
+		},
 	}
+}
+
+func (c *Canvas) AddMesh(mesh *Mesh) {
+	c.meshes = append(c.meshes, mesh)
 }
 
 // 2D.
