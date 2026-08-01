@@ -13,7 +13,7 @@ go get -u github.com/romanSPB15/pix3d
 
 ## Быстрый старт
 
-```
+```go
 package main
 
 import (
